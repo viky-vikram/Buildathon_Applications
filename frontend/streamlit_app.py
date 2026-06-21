@@ -182,9 +182,8 @@ def render_login() -> None:
         st.markdown('<div class="db-login-card"><div class="db-eyebrow">Welcome back</div>', unsafe_allow_html=True)
         st.header("Sign in to Daybook")
         st.caption("Demo version")
-        default_account = DEMO_USERS[0]
-        email = st.text_input("Work email", value=default_account["email"])
-        password = st.text_input("Password", value=default_account["password"], type="password")
+        email = st.text_input("Work email")
+        password = st.text_input("Password", type="password")
         st.caption("New employees and managers can enter their work email and leave the password blank on first sign in.")
         if st.button("Sign in", type="primary", width="stretch"):
             try:
