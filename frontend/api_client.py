@@ -56,3 +56,6 @@ class DaybookApi:
 def login(email: str, password: str) -> dict:
     return DaybookApi().post("/auth/login", {"email": email, "password": password})
 
+
+def set_password(token: str, password: str) -> dict:
+    return DaybookApi(token).post("/auth/set-password", {"password": password})

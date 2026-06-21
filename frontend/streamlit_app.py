@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import sys
 from datetime import date, datetime, timedelta
 from html import escape
+from pathlib import Path
 
 import streamlit as st
 
-from api_client import ApiError, DaybookApi, API_BASE_URL, login
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from api_client import ApiError, DaybookApi, API_BASE_URL, login, set_password
 from shared.demo_data import DEMO_USERS, DEPARTMENTS, LEAVE_TYPES, LT, ROLE_LABEL, TODAY
 from shared.theme import inject_daybook_theme
 
@@ -22,6 +28,45 @@ def init_state() -> None:
     st.session_state.setdefault("user", None)
     st.session_state.setdefault("selected_page", None)
     st.session_state.setdefault("flash", None)
+    st.session_state.setdefault("pending_password_token", None)
+    st.session_state.setdefault("pending_password_user", None)
+
+
+def set_flash(level: str, message: str, title: str = "Notification") -> None:
+    st.session_state.flash = {"level": level, "message": message, "title": title}
+
+
+def normalize_flash(flash: dict | tuple | None) -> tuple[str, str, str] | None:
+    if not flash:
+        return None
+    if isinstance(flash, dict):
+        return flash.get("level", "success"), flash.get("message", ""), flash.get("title", "Notification")
+    if len(flash) == 2:
+        level, message = flash
+        return level, message, "Notification"
+    level, message, title = flash
+    return level, message, title
+
+
+def render_flash_banner() -> None:
+    flash = normalize_flash(st.session_state.flash)
+    if not flash:
+        return
+    level, message, title = flash
+    safe_level = level if level in {"success", "error", "warning", "info"} else "success"
+    st.markdown(
+        f"""
+        <div class="db-toast {escape(safe_level)}" role="status" aria-live="polite">
+          <span class="db-toast-dot"></span>
+          <span>
+            <span class="db-toast-title">{escape(title)}</span>
+            <span class="db-toast-message">{escape(message)}</span>
+          </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state.flash = None
 
 
 def parse_day(value: str | date) -> date:
@@ -67,6 +112,51 @@ def employee_map(data: dict) -> dict[str, dict]:
     return {item["id"]: item for item in data.get("employees", [])}
 
 
+def complete_login(response: dict) -> None:
+    if response.get("must_set_password"):
+        st.session_state.pending_password_token = response["token"]
+        st.session_state.pending_password_user = response["user"]
+        st.rerun()
+    st.session_state.token = response["token"]
+    st.session_state.user = response["user"]
+    st.session_state.pending_password_token = None
+    st.session_state.pending_password_user = None
+    st.session_state.selected_page = None
+    st.rerun()
+
+
+def render_password_setup() -> None:
+    user = st.session_state.pending_password_user
+    token = st.session_state.pending_password_token
+    st.markdown('<div class="db-login-card"><div class="db-eyebrow">First sign in</div>', unsafe_allow_html=True)
+    st.header("Create your password")
+    st.caption(f"{user['name']} - {user['email']}")
+    with st.form("first_login_password_form"):
+        password = st.text_input("New password", type="password")
+        confirm = st.text_input("Confirm password", type="password")
+        submitted = st.form_submit_button("Save password", type="primary")
+    if submitted:
+        if password != confirm:
+            st.error("Passwords do not match.")
+        else:
+            try:
+                set_password(token, password)
+                st.session_state.token = None
+                st.session_state.user = None
+                st.session_state.pending_password_token = None
+                st.session_state.pending_password_user = None
+                st.session_state.selected_page = None
+                set_flash("success", "Password created. Sign in with your new password.")
+                st.rerun()
+            except ApiError as exc:
+                st.error(str(exc))
+    if st.button("Back to sign in", width="stretch"):
+        st.session_state.pending_password_token = None
+        st.session_state.pending_password_user = None
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_login() -> None:
     left, right = st.columns([1.1, 1])
     with left:
@@ -86,19 +176,20 @@ def render_login() -> None:
             unsafe_allow_html=True,
         )
     with right:
+        if st.session_state.pending_password_token and st.session_state.pending_password_user:
+            render_password_setup()
+            return
         st.markdown('<div class="db-login-card"><div class="db-eyebrow">Welcome back</div>', unsafe_allow_html=True)
         st.header("Sign in to Daybook")
         st.caption(f"API: {API_BASE_URL}")
         default_account = DEMO_USERS[0]
         email = st.text_input("Work email", value=default_account["email"])
-        password = st.text_input("Demo password", value=default_account["password"], type="password")
+        password = st.text_input("Password", value=default_account["password"], type="password")
+        st.caption("New employees and managers can enter their work email and leave the password blank on first sign in.")
         if st.button("Sign in", type="primary", width="stretch"):
             try:
                 response = login(email, password)
-                st.session_state.token = response["token"]
-                st.session_state.user = response["user"]
-                st.session_state.selected_page = None
-                st.rerun()
+                complete_login(response)
             except ApiError as exc:
                 st.error(str(exc))
         st.divider()
@@ -109,10 +200,7 @@ def render_login() -> None:
             if col.button(account["label"], width="stretch"):
                 try:
                     response = login(account["email"], account["password"])
-                    st.session_state.token = response["token"]
-                    st.session_state.user = response["user"]
-                    st.session_state.selected_page = None
-                    st.rerun()
+                    complete_login(response)
                 except ApiError as exc:
                     st.error(str(exc))
         with st.expander("Demo credentials"):
@@ -144,6 +232,8 @@ def render_sidebar(data: dict) -> str:
     if st.sidebar.button("Sign out", width="stretch"):
         st.session_state.token = None
         st.session_state.user = None
+        st.session_state.pending_password_token = None
+        st.session_state.pending_password_user = None
         st.rerun()
     return selected
 
@@ -259,7 +349,7 @@ def render_book_leave(data: dict) -> None:
         submitted = st.form_submit_button("Submit request", type="primary")
     if submitted:
         try:
-            api().post(
+            request = api().post(
                 "/leave-requests",
                 {
                     "leave_type": leave_type,
@@ -271,7 +361,7 @@ def render_book_leave(data: dict) -> None:
                     "handover": handover,
                 },
             )
-            st.success("Request submitted - pending approval.")
+            set_flash("success", f"{request['leave_type_name']} leave submitted successfully.", "Leave submitted")
             st.rerun()
         except ApiError as exc:
             st.error(str(exc))
@@ -319,13 +409,15 @@ def render_approvals(data: dict) -> None:
             c1, c2 = st.columns(2)
             if c1.button("Approve", key=f"approve_{item['id']}", type="primary"):
                 try:
-                    api().post(f"/leave-requests/{item['id']}/approve", {"note": approve_note})
+                    request = api().post(f"/leave-requests/{item['id']}/approve", {"note": approve_note})
+                    set_flash("success", f"{request['leave_type_name']} leave approved.", "Leave approved")
                     st.rerun()
                 except ApiError as exc:
                     st.error(str(exc))
             if c2.button("Reject", key=f"reject_{item['id']}"):
                 try:
-                    api().post(f"/leave-requests/{item['id']}/reject", {"note": reject_reason})
+                    request = api().post(f"/leave-requests/{item['id']}/reject", {"note": reject_reason})
+                    set_flash("warning", f"{request['leave_type_name']} leave rejected.", "Leave rejected")
                     st.rerun()
                 except ApiError as exc:
                     st.error(str(exc))
@@ -453,7 +545,7 @@ def render_employees(data: dict) -> None:
     c2.metric("Pending requests", metrics["pending"])
     c3.metric("On leave today", metrics["on_leave_today"])
     if st.session_state.user["role"] == "hr":
-        with st.expander("Add employee", expanded=False):
+        with st.expander("Add employee or manager", expanded=False):
             with st.form("add_employee_form"):
                 c1, c2 = st.columns(2)
                 name = c1.text_input("Name")
@@ -472,7 +564,7 @@ def render_employees(data: dict) -> None:
                 annual = b1.number_input("Annual balance used", min_value=0.0, value=0.0, step=0.5)
                 earned = b2.number_input("Earned balance used", min_value=0.0, value=0.0, step=0.5)
                 sick = b3.number_input("Sick balance used", min_value=0.0, value=0.0, step=0.5)
-                submitted = st.form_submit_button("Add employee", type="primary")
+                submitted = st.form_submit_button(f"Add {role_label.lower()}", type="primary")
             if submitted:
                 manager_id = manager_choice.split("(")[-1].rstrip(")") if manager_choice else None
                 try:
@@ -491,7 +583,7 @@ def render_employees(data: dict) -> None:
                             "balances": {"annual": annual, "earned": earned, "sick": sick},
                         },
                     )
-                    st.session_state.flash = ("success", f"{role_label} {name.strip()} added and recorded in SQLite and Excel.")
+                    set_flash("success", f"{role_label} {name.strip()} added and recorded in SQLite and Excel.")
                     st.rerun()
                 except ApiError as exc:
                     st.error(str(exc))
@@ -559,6 +651,7 @@ def render_page(page: str, data: dict) -> None:
 def main() -> None:
     init_state()
     inject_daybook_theme()
+    render_flash_banner()
     if not st.session_state.token or not st.session_state.user:
         render_login()
         return
@@ -566,11 +659,6 @@ def main() -> None:
     if not data:
         return
     st.session_state.user = data["user"]
-    flash = st.session_state.flash
-    if flash:
-        level, message = flash
-        getattr(st, level)(message)
-        st.session_state.flash = None
     page = render_sidebar(data)
     render_page(page, data)
 

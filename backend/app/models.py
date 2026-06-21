@@ -25,6 +25,8 @@ class Employee(Base):
     join_date: Mapped[date] = mapped_column(Date, nullable=False)
     phone: Mapped[str] = mapped_column(String(50), default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    password_hash: Mapped[str] = mapped_column(String(240), default="")
+    must_set_password: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     manager: Mapped["Employee | None"] = relationship(remote_side=[id])

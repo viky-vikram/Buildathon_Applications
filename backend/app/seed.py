@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 
-from shared.demo_data import ACTIVITY, BALANCES, EMPLOYEES, LEAVE_TYPES, LOCK_PERIODS, POLICY, PUBLIC_HOLIDAYS, REQUESTS
+from shared.demo_data import ACTIVITY, BALANCES, DEMO_USER_BY_ID, EMPLOYEES, LEAVE_TYPES, LOCK_PERIODS, POLICY, PUBLIC_HOLIDAYS, REQUESTS
 
 from .database import Base, SessionLocal, engine, init_db
 from .models import ActivityEvent, Employee, LeaveBalance, LeaveRequest, LeaveType, PolicyDate, PolicySetting, RequestDecision
+from .security import hash_password
 from .services import excel_records
 
 
@@ -18,6 +19,7 @@ def seed(reset: bool = True) -> None:
         for leave in LEAVE_TYPES:
             db.merge(LeaveType(key=leave["key"], name=leave["name"], cap=leave["cap"], color=leave["color"]))
         for row in EMPLOYEES:
+            demo_user = DEMO_USER_BY_ID.get(row["id"])
             db.merge(
                 Employee(
                     id=row["id"],
@@ -30,6 +32,8 @@ def seed(reset: bool = True) -> None:
                     join_date=date.fromisoformat(row["join"]),
                     phone=row["phone"],
                     is_active=True,
+                    password_hash=hash_password(demo_user["password"]) if demo_user else "",
+                    must_set_password=demo_user is None,
                 )
             )
         db.flush()

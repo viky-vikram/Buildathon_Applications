@@ -13,6 +13,8 @@ def current_user(x_user_id: str | None = Header(default=None), db: Session = Dep
     user = db.get(Employee, x_user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or inactive user.")
+    if user.must_set_password:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Password setup is required before using Daybook.")
     return user
 
 
@@ -20,4 +22,3 @@ def require_hr(user: Employee = Depends(current_user)) -> Employee:
     if user.role != "hr":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only HR/admin can perform this action.")
     return user
-

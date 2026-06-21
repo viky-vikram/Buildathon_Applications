@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Generator
 
 from sqlalchemy import create_engine
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
@@ -45,3 +46,21 @@ def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     EXCEL_DIR.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    ensure_employee_auth_columns()
+
+
+def ensure_employee_auth_columns() -> None:
+    inspector = inspect(engine)
+    if "employees" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("employees")}
+    statements = []
+    if "password_hash" not in columns:
+        statements.append("ALTER TABLE employees ADD COLUMN password_hash VARCHAR(240) NOT NULL DEFAULT ''")
+    if "must_set_password" not in columns:
+        statements.append("ALTER TABLE employees ADD COLUMN must_set_password BOOLEAN NOT NULL DEFAULT 1")
+    if not statements:
+        return
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))

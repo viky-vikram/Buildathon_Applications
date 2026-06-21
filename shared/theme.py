@@ -233,6 +233,59 @@ def inject_daybook_theme() -> None:
             color:var(--muted);
             font-weight:800;
         }
+        .db-toast {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 999999;
+            width: min(380px, calc(100vw - 2rem));
+            display: grid;
+            grid-template-columns: .65rem 1fr;
+            gap: .75rem;
+            align-items: start;
+            background: var(--surface);
+            color: var(--ink);
+            border: 1px solid var(--line);
+            border-left: 4px solid var(--pine);
+            border-radius: 8px;
+            box-shadow: 0 14px 36px rgba(28,30,34,.18), 0 2px 8px rgba(28,30,34,.08);
+            padding: .9rem 1rem;
+            pointer-events: none;
+            animation: db-toast-fly 3s ease-in-out forwards;
+        }
+        .db-toast.error {border-left-color: var(--reject);}
+        .db-toast.warning {border-left-color: var(--ochre);}
+        .db-toast.info {border-left-color: var(--pine-2);}
+        .db-toast-dot {
+            width: .55rem;
+            height: .55rem;
+            border-radius: 50%;
+            background: var(--pine);
+            margin-top: .35rem;
+        }
+        .db-toast.error .db-toast-dot {background: var(--reject);}
+        .db-toast.warning .db-toast-dot {background: var(--ochre);}
+        .db-toast.info .db-toast-dot {background: var(--pine-2);}
+        .db-toast-title {
+            font-size: .7rem;
+            font-weight: 900;
+            letter-spacing: .11em;
+            text-transform: uppercase;
+            color: var(--faint);
+            line-height: 1.1;
+            margin-bottom: .22rem;
+        }
+        .db-toast-message {
+            font-size: .94rem;
+            font-weight: 800;
+            line-height: 1.35;
+        }
+        @keyframes db-toast-fly {
+            0% {opacity: 0; transform: translateX(24px) translateY(-8px);}
+            12% {opacity: 1; transform: translateX(0) translateY(0);}
+            82% {opacity: 1; transform: translateX(0) translateY(0);}
+            100% {opacity: 0; transform: translateX(24px) translateY(-8px);}
+        }
         .db-ribbon {
             border: 1px solid var(--line);
             border-radius: 10px;

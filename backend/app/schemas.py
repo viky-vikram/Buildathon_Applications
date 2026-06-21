@@ -11,6 +11,14 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class PasswordSetupRequest(BaseModel):
+    password: str
+
+
+class PasswordSetupResponse(BaseModel):
+    ok: bool = True
+
+
 class EmployeeBase(BaseModel):
     name: str
     email: str
@@ -116,6 +124,7 @@ class ActivityOut(BaseModel):
 class LoginResponse(BaseModel):
     user: EmployeeOut
     token: str
+    must_set_password: bool = False
 
 
 class ExcelStatus(BaseModel):

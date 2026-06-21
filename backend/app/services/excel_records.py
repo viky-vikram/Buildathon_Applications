@@ -34,19 +34,26 @@ def workbook_path() -> Path:
 
 
 def ensure_workbook(path: Path | None = None) -> Path:
+    global last_error
     path = path or workbook_path()
-    if path.exists():
-        wb = load_workbook(path)
-    else:
-        wb = Workbook()
-        default = wb.active
-        wb.remove(default)
-    for name in SHEETS:
-        if name not in wb.sheetnames:
-            ws = wb.create_sheet(name)
-            ws.append(HEADERS[name])
-    wb.save(path)
-    wb.close()
+    try:
+        if path.exists():
+            wb = load_workbook(path)
+        else:
+            wb = Workbook()
+            default = wb.active
+            wb.remove(default)
+        try:
+            for name in SHEETS:
+                if name not in wb.sheetnames:
+                    ws = wb.create_sheet(name)
+                    ws.append(HEADERS[name])
+            wb.save(path)
+            last_error = None
+        finally:
+            wb.close()
+    except PermissionError as exc:
+        last_error = f"Excel workbook is locked or not writable: {exc}"
     return path
 
 
@@ -82,15 +89,22 @@ def append_record(sheet: str, action: str, payload: dict[str, Any], actor: str |
 
 def status() -> dict[str, Any]:
     path = ensure_workbook()
-    wb = load_workbook(path)
-    payload = {
+    try:
+        wb = load_workbook(path)
+        try:
+            sheets = {name: max(0, wb[name].max_row - 1) for name in SHEETS if name in wb.sheetnames}
+        finally:
+            wb.close()
+    except PermissionError as exc:
+        global last_error
+        last_error = f"Excel workbook is locked or not writable: {exc}"
+        sheets = {name: 0 for name in SHEETS}
+    return {
         "path": str(path),
         "exists": path.exists(),
-        "sheets": {name: max(0, wb[name].max_row - 1) for name in SHEETS},
+        "sheets": sheets,
         "last_error": last_error,
     }
-    wb.close()
-    return payload
 
 
 def rebuild_from_db(db: Session) -> dict[str, Any]:

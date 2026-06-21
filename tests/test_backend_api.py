@@ -146,6 +146,51 @@ class BackendApiTests(unittest.TestCase):
         self.assertEqual(employees["omar.silva@acme.co"]["manager_id"], manager_id)
         self.assertEqual(employees["omar.silva@acme.co"]["manager_name"], "Zara Khan")
 
+        first_manager_login = self.client.post("/auth/login", json={"email": "zara.khan@acme.co", "password": ""})
+        self.assertEqual(first_manager_login.status_code, 200, first_manager_login.text)
+        self.assertTrue(first_manager_login.json()["must_set_password"])
+        first_manager_headers = {"X-User-Id": first_manager_login.json()["token"]}
+
+        blocked_dashboard = self.client.get("/analytics/dashboard", headers=first_manager_headers)
+        self.assertEqual(blocked_dashboard.status_code, 401)
+
+        manager_password = self.client.post(
+            "/auth/set-password",
+            headers=first_manager_headers,
+            json={"password": "manager-created"},
+        )
+        self.assertEqual(manager_password.status_code, 200, manager_password.text)
+        self.assertTrue(manager_password.json()["ok"])
+
+        blank_manager_login = self.client.post("/auth/login", json={"email": "zara.khan@acme.co", "password": ""})
+        self.assertEqual(blank_manager_login.status_code, 401)
+
+        manager_login = self.client.post("/auth/login", json={"email": "zara.khan@acme.co", "password": "manager-created"})
+        self.assertEqual(manager_login.status_code, 200, manager_login.text)
+        manager_headers = {"X-User-Id": manager_login.json()["token"]}
+        manager_dashboard = self.client.get("/analytics/dashboard", headers=manager_headers)
+        self.assertEqual(manager_dashboard.status_code, 200, manager_dashboard.text)
+        manager_employees = {item["email"]: item for item in manager_dashboard.json()["employees"]}
+        self.assertIn("omar.silva@acme.co", manager_employees)
+
+        first_employee_login = self.client.post("/auth/login", json={"email": "omar.silva@acme.co", "password": ""})
+        self.assertEqual(first_employee_login.status_code, 200, first_employee_login.text)
+        self.assertTrue(first_employee_login.json()["must_set_password"])
+        employee_headers = {"X-User-Id": first_employee_login.json()["token"]}
+        employee_password = self.client.post(
+            "/auth/set-password",
+            headers=employee_headers,
+            json={"password": "employee-created"},
+        )
+        self.assertEqual(employee_password.status_code, 200, employee_password.text)
+
+        blank_employee_login = self.client.post("/auth/login", json={"email": "omar.silva@acme.co", "password": ""})
+        self.assertEqual(blank_employee_login.status_code, 401)
+
+        employee_login = self.client.post("/auth/login", json={"email": "omar.silva@acme.co", "password": "employee-created"})
+        self.assertEqual(employee_login.status_code, 200, employee_login.text)
+        self.assertEqual(employee_login.json()["user"]["role"], "employee")
+
         status = self.client.get("/records/excel/status", headers=headers).json()
         self.assertGreaterEqual(status["sheets"]["Employees"], 9)
         self.assertGreaterEqual(status["sheets"]["Balances"], 54)
