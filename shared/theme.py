@@ -251,7 +251,7 @@ def inject_daybook_theme() -> None:
             box-shadow: 0 14px 36px rgba(28,30,34,.18), 0 2px 8px rgba(28,30,34,.08);
             padding: .9rem 1rem;
             pointer-events: none;
-            animation: db-toast-fly 3s ease-in-out forwards;
+            animation: db-toast-fly 5s ease-in-out forwards;
         }
         .db-toast.error {border-left-color: var(--reject);}
         .db-toast.warning {border-left-color: var(--ochre);}
