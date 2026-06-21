@@ -27,7 +27,7 @@ Terminal 2:
 streamlit run frontend/streamlit_app.py
 ```
 
-Open:
+Streamlit opens the app in your default browser. If it does not, open:
 
 ```text
 http://localhost:8501
@@ -49,8 +49,8 @@ $env:DAYBOOK_CORS_ORIGINS="https://your-streamlit-app.example"
 
 The seed command creates the build-plan storage files:
 
-- SQLite: `data/daybook.sqlite3`
-- Excel workbook: `database excel/daybook_records.xlsx`
+- SQLite: `var/data/daybook.sqlite3`
+- Excel workbook: `var/data/daybook_records.xlsx`
 
 SQLite is the source of truth. API writes append records to Excel, and HR/admin users can rebuild the workbook from SQLite from the Records screen or `POST /records/excel/rebuild`.
 
@@ -65,6 +65,8 @@ SQLite is the source of truth. API writes append records to Excel, and HR/admin 
 - Employee cancellation is limited to the employee's own pending requests.
 - Pending requests can be approved or rejected only by an eligible manager.
 - HR can add an employee from the Employees screen, and the employee appears immediately after refresh.
-- HR-created employees and balances appear in SQLite and `database excel/daybook_records.xlsx`.
+- Leave submission, approval, and rejection show floating banners with the leave type and disappear after 5 seconds.
+- HR-created employees and balances appear in SQLite and `var/data/daybook_records.xlsx`.
 - HR can view Excel status and rebuild the workbook from SQLite.
+- Streamlit launches in the default browser when run locally because `.streamlit/config.toml` sets `server.headless = false`.
 - `python -m unittest discover -s tests` passes.

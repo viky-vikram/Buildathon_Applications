@@ -85,7 +85,7 @@ def inject_daybook_theme() -> None:
             background: var(--pine);
             color: #EFEFE7;
             border-radius: 10px;
-            padding: 2.4rem;
+            padding: 3rem 2.4rem 2.4rem;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -93,6 +93,7 @@ def inject_daybook_theme() -> None:
         .db-login-hero h1 {
             color: #EFEFE7;
             font-size: 2.45rem;
+            line-height: 1.12;
             margin: 0;
         }
         .db-login-hero .tag {

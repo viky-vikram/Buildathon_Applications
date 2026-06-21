@@ -79,4 +79,4 @@ def seed(reset: bool = True) -> None:
 
 if __name__ == "__main__":
     seed(reset=True)
-    print("Seeded data/daybook.sqlite3 and database excel/daybook_records.xlsx")
+    print("Seeded var/data/daybook.sqlite3 and var/data/daybook_records.xlsx")

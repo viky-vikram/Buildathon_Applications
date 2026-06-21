@@ -11,7 +11,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from api_client import ApiError, DaybookApi, API_BASE_URL, login, set_password
+from api_client import ApiError, DaybookApi, login, set_password
 from shared.demo_data import DEMO_USERS, DEPARTMENTS, LEAVE_TYPES, LT, ROLE_LABEL, TODAY
 from shared.theme import inject_daybook_theme
 
@@ -166,9 +166,9 @@ def render_login() -> None:
               <div><h1>Daybook</h1><div class="tag">Leave Management</div></div>
               <div class="big">A clear record of every day<br><em>taken, owed, and away.</em></div>
               <div>
-                <p><b>01</b> &nbsp; FastAPI-backed requests and approvals</p>
-                <p><b>02</b> &nbsp; SQLite as the source of truth</p>
-                <p><b>03</b> &nbsp; Excel records for buildathon handoff</p>
+                <p><b>01</b> &nbsp; Register employees and access role-based dashboards</p>
+                <p><b>02</b> &nbsp; Submit leave requests and track every approval status</p>
+                <p><b>03</b> &nbsp; Manage approvals with secure SQLite and Excel records</p>
               </div>
               <div class="tag">ACME CO - INTERNAL</div>
             </div>
@@ -181,7 +181,7 @@ def render_login() -> None:
             return
         st.markdown('<div class="db-login-card"><div class="db-eyebrow">Welcome back</div>', unsafe_allow_html=True)
         st.header("Sign in to Daybook")
-        st.caption(f"API: {API_BASE_URL}")
+        st.caption("Demo version")
         default_account = DEMO_USERS[0]
         email = st.text_input("Work email", value=default_account["email"])
         password = st.text_input("Password", value=default_account["password"], type="password")
@@ -228,7 +228,6 @@ def render_sidebar(data: dict) -> str:
             st.caption(item["text"])
         if not data.get("activity"):
             st.caption("No activity yet.")
-    st.sidebar.caption("Storage: SQLite + Excel")
     if st.sidebar.button("Sign out", width="stretch"):
         st.session_state.token = None
         st.session_state.user = None
@@ -313,25 +312,30 @@ def render_dashboard(data: dict) -> None:
     st.title(f"Good to see you, {user['name'].split()[0]}.")
     st.caption("Your allowance, your requests, and upcoming leave around you.")
     render_balance_cards(data["balances"])
+    if user["role"] in {"manager", "hr"}:
+        try:
+            pending = api().get("/approvals/pending")
+        except ApiError as exc:
+            st.error(str(exc))
+            return
+        st.subheader(f"Pending approval requests ({len(pending)})")
+        render_request_table(pending, include_employee=True)
+        for item in pending:
+            show_request_details(item)
+        return
+
     mine = [item for item in data["requests"] if item["employee_id"] == user["id"]]
     pending = [item for item in mine if item["status"] == "pending"]
-    c1, c2 = st.columns([1.4, 1])
-    with c1:
-        st.subheader("Waiting on approval")
-        render_request_table(pending)
-        for item in pending:
-            if st.button(f"Cancel {item['leave_type_name']} {fmt_range(item)}", key=f"cancel_dash_{item['id']}"):
-                try:
-                    api().post(f"/leave-requests/{item['id']}/cancel", {"note": "Cancelled by employee"})
-                    st.success("Request cancelled.")
-                    st.rerun()
-                except ApiError as exc:
-                    st.error(str(exc))
-    with c2:
-        st.subheader("Activity")
-        for event in data.get("activity", [])[:5]:
-            st.write(f"**{event['created_at'][:10]}**")
-            st.caption(event["text"])
+    st.subheader("Waiting on approval")
+    render_request_table(pending)
+    for item in pending:
+        if st.button(f"Cancel {item['leave_type_name']} {fmt_range(item)}", key=f"cancel_dash_{item['id']}"):
+            try:
+                api().post(f"/leave-requests/{item['id']}/cancel", {"note": "Cancelled by employee"})
+                st.success("Request cancelled.")
+                st.rerun()
+            except ApiError as exc:
+                st.error(str(exc))
 
 
 def render_book_leave(data: dict) -> None:
