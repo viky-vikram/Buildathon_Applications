@@ -1,0 +1,23 @@
+[project]
+name = "daybook-leave-management"
+version = "1.0.0"
+description = "FastAPI and Streamlit leave-management buildathon application."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111",
+    "httpx>=0.28",
+    "openpyxl>=3.1",
+    "pydantic>=2.7",
+    "requests>=2.31",
+    "sqlalchemy>=2.0",
+    "streamlit>=1.35",
+    "uvicorn[standard]>=0.29",
+]
+
+[tool.ruff]
+line-length = 140
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+

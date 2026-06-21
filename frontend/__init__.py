@@ -1,0 +1,2 @@
+"""Daybook Streamlit frontend package."""
+

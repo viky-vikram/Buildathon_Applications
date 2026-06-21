@@ -151,6 +151,7 @@ activemq-data/
 .env
 .envrc
 .venv
+.venv-*/
 env/
 venv/
 ENV/
@@ -216,3 +217,25 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project runtime folders
+!/var/
+!/var/logs/
+/var/logs/*.log
+!/var/logs/.gitkeep
+!/var/data/
+/var/data/*.json
+!/var/data/.gitkeep
+
+# Build-plan local storage outputs
+!/data/
+/data/*.sqlite3
+/data/*.sqlite3-*
+/data/*.xlsx
+!/data/.gitkeep
+
+# Local browser/test profiles
+/var/edge-profile*/
+
+# Legacy local exports
+/database excel/
