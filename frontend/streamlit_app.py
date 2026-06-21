@@ -92,7 +92,7 @@ def render_login() -> None:
         default_account = DEMO_USERS[0]
         email = st.text_input("Work email", value=default_account["email"])
         password = st.text_input("Demo password", value=default_account["password"], type="password")
-        if st.button("Sign in", type="primary", use_container_width=True):
+        if st.button("Sign in", type="primary", width="stretch"):
             try:
                 response = login(email, password)
                 st.session_state.token = response["token"]
@@ -106,7 +106,7 @@ def render_login() -> None:
         for col, account in zip(demo_cols, DEMO_USERS):
             col.markdown(f"**{escape(account['label'])}**")
             col.caption(account["email"])
-            if col.button(account["label"], use_container_width=True):
+            if col.button(account["label"], width="stretch"):
                 try:
                     response = login(account["email"], account["password"])
                     st.session_state.token = response["token"]
@@ -141,7 +141,7 @@ def render_sidebar(data: dict) -> str:
         if not data.get("activity"):
             st.caption("No activity yet.")
     st.sidebar.caption("Storage: SQLite + Excel")
-    if st.sidebar.button("Sign out", use_container_width=True):
+    if st.sidebar.button("Sign out", width="stretch"):
         st.session_state.token = None
         st.session_state.user = None
         st.rerun()
@@ -393,7 +393,7 @@ def render_burnout() -> None:
         st.error(str(exc))
         return
     if rows:
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(rows, width="stretch", hide_index=True)
     else:
         st.success("Everyone has taken leave recently.")
 
@@ -458,7 +458,8 @@ def render_employees(data: dict) -> None:
                 c1, c2 = st.columns(2)
                 name = c1.text_input("Name")
                 email = c2.text_input("Work email")
-                role = c1.selectbox("Role", ["employee", "manager", "hr"])
+                role_label = c1.selectbox("Role", ["Employee", "Manager"])
+                role = "manager" if role_label == "Manager" else "employee"
                 title = c2.text_input("Title")
                 department = c1.selectbox("Department", DEPARTMENTS)
                 managers = [item for item in data["employees"] if item["role"] in {"manager", "hr"}]
@@ -490,7 +491,7 @@ def render_employees(data: dict) -> None:
                             "balances": {"annual": annual, "earned": earned, "sick": sick},
                         },
                     )
-                    st.success("Employee added and recorded in SQLite and Excel.")
+                    st.session_state.flash = ("success", f"{role_label} {name.strip()} added and recorded in SQLite and Excel.")
                     st.rerun()
                 except ApiError as exc:
                     st.error(str(exc))
@@ -498,7 +499,7 @@ def render_employees(data: dict) -> None:
         {"Name": item["name"], "Title": item["title"], "Department": item["department"], "Manager": item.get("manager_name") or "-", "Role": ROLE_LABEL[item["role"]]}
         for item in data["employees"]
     ]
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    st.dataframe(rows, width="stretch", hide_index=True)
     selected = st.selectbox("Open employee profile", [item["name"] for item in data["employees"]])
     target = next(item for item in data["employees"] if item["name"] == selected)
     render_details(data, target["id"])
@@ -512,7 +513,7 @@ def render_records() -> None:
         st.error(str(exc))
         return
     st.write(f"**Workbook:** {status['path']}")
-    st.dataframe([{"Sheet": key, "Rows": value} for key, value in status["sheets"].items()], use_container_width=True, hide_index=True)
+    st.dataframe([{"Sheet": key, "Rows": value} for key, value in status["sheets"].items()], width="stretch", hide_index=True)
     if status.get("last_error"):
         st.warning(status["last_error"])
     if st.button("Rebuild workbook from SQLite", type="primary"):
@@ -565,6 +566,11 @@ def main() -> None:
     if not data:
         return
     st.session_state.user = data["user"]
+    flash = st.session_state.flash
+    if flash:
+        level, message = flash
+        getattr(st, level)(message)
+        st.session_state.flash = None
     page = render_sidebar(data)
     render_page(page, data)
 

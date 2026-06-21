@@ -73,7 +73,12 @@ def scoped_employees(db: Session, user: Employee) -> list[Employee]:
 
 def scoped_requests(db: Session, user: Employee) -> list[LeaveRequest]:
     if user.role == "hr":
-        return db.query(LeaveRequest).join(Employee).order_by(LeaveRequest.applied_on.desc(), LeaveRequest.id.desc()).all()
+        return (
+            db.query(LeaveRequest)
+            .join(Employee, LeaveRequest.employee_id == Employee.id)
+            .order_by(LeaveRequest.applied_on.desc(), LeaveRequest.id.desc())
+            .all()
+        )
     if user.role == "manager":
         ids = [item.id for item in db.query(Employee).filter(Employee.manager_id == user.id).all()] + [user.id]
         return db.query(LeaveRequest).filter(LeaveRequest.employee_id.in_(ids)).order_by(LeaveRequest.applied_on.desc(), LeaveRequest.id.desc()).all()
@@ -115,4 +120,3 @@ def balances_for(db: Session, employee_id: str) -> list[BalanceOut]:
 def recent_activity(db: Session, limit: int = 12) -> list[ActivityOut]:
     events = db.query(ActivityEvent).order_by(ActivityEvent.created_at.desc()).limit(limit).all()
     return [ActivityOut(kind=item.kind, text=item.text, created_at=item.created_at) for item in events]
-

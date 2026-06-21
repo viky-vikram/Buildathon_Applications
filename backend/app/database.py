@@ -10,8 +10,9 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT_DIR / "data"
+EXCEL_DIR = ROOT_DIR / "database excel"
 DEFAULT_DB_PATH = DATA_DIR / "daybook.sqlite3"
-DEFAULT_EXCEL_PATH = DATA_DIR / "daybook_records.xlsx"
+DEFAULT_EXCEL_PATH = EXCEL_DIR / "daybook_records.xlsx"
 
 
 def database_url() -> str:
@@ -42,5 +43,5 @@ def init_db() -> None:
     from . import models  # noqa: F401
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    EXCEL_DIR.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
-

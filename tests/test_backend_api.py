@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+from json import loads
 from pathlib import Path
 
 
@@ -15,9 +16,10 @@ class BackendApiTests(unittest.TestCase):
     def setUp(self):
         try:
             import fastapi  # noqa: F401
+            import openpyxl  # noqa: F401
             import sqlalchemy  # noqa: F401
         except ImportError:
-            self.skipTest("FastAPI and SQLAlchemy are not installed. Run pip install -r requirements.txt.")
+            self.skipTest("FastAPI, SQLAlchemy, and openpyxl are not installed. Run pip install -r requirements.txt.")
 
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = Path(self.temp_dir.name) / "daybook.sqlite3"
@@ -92,6 +94,94 @@ class BackendApiTests(unittest.TestCase):
         status = self.client.get("/records/excel/status", headers=headers).json()
         self.assertGreaterEqual(status["sheets"]["Employees"], 1)
         self.assertGreaterEqual(status["sheets"]["Balances"], 1)
+
+    def test_hr_can_add_manager_then_employee_and_excel_reflects_both(self):
+        from openpyxl import load_workbook
+
+        headers = self.headers_for("grace.hall@acme.co", "hr-demo")
+
+        manager = self.client.post(
+            "/employees",
+            headers=headers,
+            json={
+                "name": "Zara Khan",
+                "email": "zara.khan@acme.co",
+                "role": "manager",
+                "title": "Support Manager",
+                "department": "People",
+                "manager_id": "e7",
+                "join_date": "2026-02-01",
+                "phone": "+1 415 555 0210",
+                "is_active": True,
+                "balances": {"annual": 0, "earned": 0, "sick": 0},
+            },
+        )
+        self.assertEqual(manager.status_code, 200, manager.text)
+        self.assertEqual(manager.json()["role"], "manager")
+        manager_id = manager.json()["id"]
+
+        employee = self.client.post(
+            "/employees",
+            headers=headers,
+            json={
+                "name": "Omar Silva",
+                "email": "omar.silva@acme.co",
+                "role": "employee",
+                "title": "People Operations Associate",
+                "department": "People",
+                "manager_id": manager_id,
+                "join_date": "2026-03-15",
+                "phone": "+1 415 555 0211",
+                "is_active": True,
+                "balances": {"annual": 2, "earned": 1, "sick": 0},
+            },
+        )
+        self.assertEqual(employee.status_code, 200, employee.text)
+        self.assertEqual(employee.json()["manager_name"], "Zara Khan")
+
+        dashboard = self.client.get("/analytics/dashboard", headers=headers)
+        self.assertEqual(dashboard.status_code, 200, dashboard.text)
+        employees = {item["email"]: item for item in dashboard.json()["employees"]}
+        self.assertEqual(employees["zara.khan@acme.co"]["role"], "manager")
+        self.assertEqual(employees["omar.silva@acme.co"]["manager_id"], manager_id)
+        self.assertEqual(employees["omar.silva@acme.co"]["manager_name"], "Zara Khan")
+
+        status = self.client.get("/records/excel/status", headers=headers).json()
+        self.assertGreaterEqual(status["sheets"]["Employees"], 9)
+        self.assertGreaterEqual(status["sheets"]["Balances"], 54)
+
+        workbook = load_workbook(self.excel_path)
+        try:
+            rows = list(workbook["Employees"].iter_rows(values_only=True))
+        finally:
+            workbook.close()
+        employee_rows = {row[4]: row for row in rows[1:]}
+        self.assertIn("Maya Lin", employee_rows)
+        self.assertEqual(employee_rows["Zara Khan"][6], "manager")
+        self.assertEqual(employee_rows["Omar Silva"][6], "employee")
+        self.assertEqual(loads(employee_rows["Omar Silva"][8])["manager_id"], manager_id)
+
+    def test_hr_cannot_create_another_hr_user(self):
+        headers = self.headers_for("grace.hall@acme.co", "hr-demo")
+
+        response = self.client.post(
+            "/employees",
+            headers=headers,
+            json={
+                "name": "Admin Copy",
+                "email": "admin.copy@acme.co",
+                "role": "hr",
+                "title": "HR Admin",
+                "department": "People",
+                "manager_id": None,
+                "join_date": "2026-01-10",
+                "phone": "+1 415 555 0998",
+                "is_active": True,
+                "balances": {},
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
 
     def test_employee_request_and_manager_approval(self):
         employee_headers = self.headers_for("maya.lin@acme.co", "employee-demo")

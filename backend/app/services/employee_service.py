@@ -18,6 +18,8 @@ def next_employee_id(db: Session) -> str:
 
 
 def validate_employee_payload(db: Session, payload) -> None:
+    if not payload.name.strip():
+        raise HTTPException(status_code=422, detail="Name is required.")
     if "@" not in payload.email:
         raise HTTPException(status_code=422, detail="Work email must be a valid email address.")
     if db.query(Employee).filter(Employee.email == str(payload.email).lower()).first():
@@ -28,7 +30,7 @@ def validate_employee_payload(db: Session, payload) -> None:
         if not payload.manager_id:
             raise HTTPException(status_code=422, detail="A manager is required for employee and manager records.")
         manager = db.get(Employee, payload.manager_id)
-        if not manager or manager.role not in {"manager", "hr"}:
+        if not manager or not manager.is_active or manager.role not in {"manager", "hr"}:
             raise HTTPException(status_code=422, detail="Manager must reference an active manager or HR employee.")
     for leave_type, value in payload.balances.items():
         if value < 0:

@@ -50,7 +50,7 @@ $env:DAYBOOK_CORS_ORIGINS="https://your-streamlit-app.example"
 The seed command creates the build-plan storage files:
 
 - SQLite: `data/daybook.sqlite3`
-- Excel workbook: `data/daybook_records.xlsx`
+- Excel workbook: `database excel/daybook_records.xlsx`
 
 SQLite is the source of truth. API writes append records to Excel, and HR/admin users can rebuild the workbook from SQLite from the Records screen or `POST /records/excel/rebuild`.
 
@@ -65,6 +65,6 @@ SQLite is the source of truth. API writes append records to Excel, and HR/admin 
 - Employee cancellation is limited to the employee's own pending requests.
 - Pending requests can be approved or rejected only by an eligible manager.
 - HR can add an employee from the Employees screen, and the employee appears immediately after refresh.
-- HR-created employees and balances appear in SQLite and `data/daybook_records.xlsx`.
+- HR-created employees and balances appear in SQLite and `database excel/daybook_records.xlsx`.
 - HR can view Excel status and rebuild the workbook from SQLite.
 - `python -m unittest discover -s tests` passes.

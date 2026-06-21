@@ -24,6 +24,7 @@ class EmployeeBase(BaseModel):
 
 
 class EmployeeCreate(EmployeeBase):
+    role: str = Field(pattern="^(employee|manager)$")
     balances: dict[str, float] = Field(default_factory=dict)
 
 
